@@ -50,6 +50,23 @@ class Sinusoidal:
         if horizontal_tile < 0 or horizontal_tile > 35:
             raise ValueError("horizontal_tile should be in range of [0, 35]")
 
+    # 检查图像坐标经纬度是否合法
+    @staticmethod
+    def check_geographic_coordinates(lat_geographic: float, lon_geographic: float):
+        """检查图像坐标经纬度是否合法
+
+        Parameters
+        ----------
+        lat_geographic : float
+            纬度
+        lon_geographic : float
+            经度
+        """
+        if lat_geographic < -90 or lat_geographic > 90:
+            raise ValueError("lat_geographic should be in range of [-90, 90]")
+        if lon_geographic < -180 or lon_geographic > 180:
+            raise ValueError("lon_geographic should be in range of [-180, 180]")
+
     @staticmethod
     def tcnum2tcdeg(vertical_tile, horizontal_tile, line, sample):
         Sinusoidal.check_tile_number(vertical_tile, horizontal_tile)
@@ -68,14 +85,13 @@ class Sinusoidal:
     @staticmethod
     def tcdeg2gc(lat_tile, lon_tile):
         lat_geographic = lat_tile
-        lon_geographic = lon_tile / math.cos(lat_geographic / 180 * math.pi)
+        lon_geographic = lon_tile / math.cos(math.radians(lat_geographic))
         return lat_geographic, lon_geographic
 
     @staticmethod
     def gc2tcdeg(lat_geographic, lon_geographic):
         lat_tile = lat_geographic
-        lon_tile = lon_geographic * math.cos(lat_geographic / 180 * math.pi)
-        math.cos(lat_geographic / 2 * math.pi)
+        lon_tile = lon_geographic * math.cos(math.radians(lat_geographic))
         return lat_tile, lon_tile
 
     @staticmethod
@@ -111,7 +127,7 @@ class Sinusoidal:
     @staticmethod
     def gc2rc(lat_geographic, lon_geographic):
         """
-        地理坐标系转大地坐标系
+        地理坐标系转直角坐标系
         :param lat_geographic: 纬度
         :param lon_geographic: 经度
         :return: (x, y), x 为东西方向, y 为南北方向
@@ -122,7 +138,7 @@ class Sinusoidal:
     @staticmethod
     def rc2gc(x, y):
         """
-        大地坐标系转地理坐标系
+        直角坐标系转地理坐标系
         :param x: x, 东西方向
         :param y: y, 南北方向
         :return: (lat_geographic, lon_geographic), 纬度为南北方向, 经度为东西方向
@@ -148,3 +164,22 @@ class Sinusoidal:
         lon_min = min(lon_ul, lon_lr, lon_ur, lon_ll)
         lon_max = max(lon_ul, lon_lr, lon_ur, lon_ll)
         return lat_min, lat_max, lon_min, lon_max
+
+    @staticmethod
+    def get_GRing_rectangular_coordinates_of_sinusoidal_tiles(vertical_tile, horizontal_tile):
+        """
+        获取指定图块的环直角坐标(GRing, 四个角点的坐标), 高纬度地区失效
+        :param vertical_tile: 垂直图块号
+        :param horizontal_tile: 水平图块号
+        :return: (x_ul, y_ul, x_ur, y_ur, x_lr, y_lr, x_ll, y_ll), x 为东西方向, y 为南北方向
+        """
+        lat_ul, lon_ul = Sinusoidal.tcnum2gc(vertical_tile, horizontal_tile, -0.5, -0.5)
+        x_ul, y_ul = Sinusoidal.gc2rc(lat_ul, lon_ul)
+        lat_ur, lon_ur = Sinusoidal.tcnum2gc(vertical_tile, horizontal_tile, -0.5, 1199.5)
+        x_ur, y_ur = Sinusoidal.gc2rc(lat_ur, lon_ur)
+        lat_lr, lon_lr = Sinusoidal.tcnum2gc(vertical_tile, horizontal_tile, 1199.5, 1199.5)
+        x_lr, y_lr = Sinusoidal.gc2rc(lat_lr, lon_lr)
+        lat_ll, lon_ll = Sinusoidal.tcnum2gc(vertical_tile, horizontal_tile, 1199.5, -0.5)
+        x_ll, y_ll = Sinusoidal.gc2rc(lat_ll, lon_ll)
+        print(lat_ll, lon_ll, lat_lr, lon_lr, lat_ur, lon_ur, lat_ul, lon_ul)
+        return x_ul, y_ul, x_ur, y_ur, x_lr, y_lr, x_ll, y_ll

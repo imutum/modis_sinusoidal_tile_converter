@@ -21,6 +21,8 @@ python
 >>> Sinusoidal.tcnum2gc(4, 24, -0.5, -0.5)
 (50.0, 93.34342961162473)
 ```
+## Resources
+```MODIS_Sinusoidal_Tile_Grid_Corner_Coordinates.csv```
 # References
 - [MODLAND_grid](https://modis-land.gsfc.nasa.gov/MODLAND_grid.html)  
 - [MODLAND Tile Calculator](https://landweb.modaps.eosdis.nasa.gov/cgi-bin/developer/tilemap.cgi)
