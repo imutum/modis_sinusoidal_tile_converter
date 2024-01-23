@@ -23,6 +23,13 @@ python
 ```
 ## Resources
 ```MODIS_Sinusoidal_Tile_Grid_Corner_Coordinates.csv```
+
+How to get this file?
+```
+## the pattern “**” will match any files and zero or more directories, 
+# subdirectories and symbolic links to directories
+python scripts\get_corner_coordinates_of_modis_sinusoidal_tile.py **/*.hdf
+``` 
 # References
 - [MODLAND_grid](https://modis-land.gsfc.nasa.gov/MODLAND_grid.html)  
 - [MODLAND Tile Calculator](https://landweb.modaps.eosdis.nasa.gov/cgi-bin/developer/tilemap.cgi)
