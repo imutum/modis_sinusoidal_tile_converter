@@ -1,30 +1,31 @@
 import math
-from pyproj import Proj, CRS
+
+from pyproj import CRS, Proj
 
 __all__ = ["Sinusoidal"]
 
 
 class Sinusoidal:
     """
-    正弦投影
-    对于Modis传感器, 部分数据使用该种投影方式
+    Sinusoidal正弦投影
+    对于MODIS传感器, 部分数据使用该种投影方式
     参考网站: https://modis-land.gsfc.nasa.gov/MODLAND_grid.html
     参考网站: https://landweb.modaps.eosdis.nasa.gov/cgi-bin/developer/tilemap.cgi
 
-    常规参数:
-    gc: geographic coordinates, 地理坐标系, 以经纬度表示地面点位置的球面坐标, (lat, lon), 先南北方向后东西方向
-    rc: rectangular coordinates, 直角坐标系, 以米为单位表示地面点位置的坐标, (x, y), 先东西方向后南北方向
+    常规坐标系参数说明:
+    GCS: Geographic Coordinate System, 地理坐标系, 以经纬度表示地面点位置的球面坐标, (lat, lon), lat南北方向, lon东西方向
+    PCS: Projected Coordinate System, 投影坐标系, 一般以米为单位表示地面点位置的坐标, (x, y), x东西方向, y南北方向
 
-    MODIS传感器特殊参数:
-    tcnum: tile/image coordinates in number, 用图块编号表示的平铺/影像坐标系, 以图块编号表示:
+    MODIS正弦投影的参数说明:
+    ICSTile: Tile/Image Coordinates System, 用图块编号表示的平铺/影像坐标系:
             垂直图块号(vertical_tile), 数值范围为0~17;
             水平图块号(horizontal_tile), 数值范围为0~35;
-            垂直行号(line), 数值范围为-0.5~1199.5;
-            水平列号(sample), 数值范围为-0.5~1199.5;
+            垂直行号(line), 数值范围为-0.5~1199.5(1km)2399.5(500m);
+            水平列号(sample), 数值范围为-0.5~1199.5(1km)2399.5(500m);
 
-    tcdeg: tile/image coordinates in degree, 用经纬度表示的平铺/影像坐标系, 由于
-            影像坐标系以平整的方形网格划分影像图块, 划分间隔为10°, 故图像范围与地理
-            坐标系为(-90~90, -180~180)
+    ICSGeo: Geographic Tile/Image Coordinate System, 用经纬度表示的平铺/影像坐标系:
+            纬度(lat_tile), 数值范围为-90~90;
+            经度(lon_tile), 数值范围为-180~180;
 
     注意: 此处图块左上角的像素中心坐标为 (0.0, 0.0), 图块左上角的像素左上角坐标为 (-0.5, -0.5)
     """
@@ -33,153 +34,177 @@ class Sinusoidal:
 
     crs = CRS.from_wkt(wkt)
 
-    # 检查图块编号是否合法
-    @staticmethod
-    def check_tile_number(vertical_tile: int, horizontal_tile: int):
-        """检查图块编号是否合法
+    default_precision = 8
 
-        Parameters
-        ----------
-        vertical_tile : int
-            垂直图块号
-        horizontal_tile : int
-            水平图块号
-        """
+    @staticmethod
+    def _check_tile(vertical_tile: int, horizontal_tile: int):
+        """检查图块编号是否合法"""
         if vertical_tile < 0 or vertical_tile > 17:
-            raise ValueError("vertical_tile should be in range of [0, 17]")
+            raise ValueError(f"vertical_tile({vertical_tile}) should be in range of [0, 17]")
         if horizontal_tile < 0 or horizontal_tile > 35:
-            raise ValueError("horizontal_tile should be in range of [0, 35]")
-
-    # 检查图像坐标经纬度是否合法
-    @staticmethod
-    def check_geographic_coordinates(lat_geographic: float, lon_geographic: float):
-        """检查图像坐标经纬度是否合法
-
-        Parameters
-        ----------
-        lat_geographic : float
-            纬度
-        lon_geographic : float
-            经度
-        """
-        if lat_geographic < -90 or lat_geographic > 90:
-            raise ValueError("lat_geographic should be in range of [-90, 90]")
-        if lon_geographic < -180 or lon_geographic > 180:
-            raise ValueError("lon_geographic should be in range of [-180, 180]")
+            raise ValueError(f"horizontal_tile({horizontal_tile}) should be in range of [0, 35]")
 
     @staticmethod
-    def tcnum2tcdeg(vertical_tile, horizontal_tile, line, sample):
-        Sinusoidal.check_tile_number(vertical_tile, horizontal_tile)
-        lat_tile = 90 - vertical_tile * 10 - (line + 0.5) / 120
-        lon_tile = -180 + horizontal_tile * 10 + (sample + 0.5) / 120
-        return lat_tile, lon_tile
+    def _check_geo(lat: float, lon: float):
+        """检查经纬度是否合法"""
+        if lat < -90 or lat > 90:
+            raise ValueError(f"lat({lat}) should be in range of [-90, 90]")
+        if lon < -180 or lon > 180:
+            raise ValueError(f"lon({lat}) should be in range of [-180, 180]")
 
     @staticmethod
-    def tcdeg2tcnum(lat_tile, lon_tile):
-        vertical_tile = int((90 - lat_tile) / 10)
-        horizontal_tile = int((lon_tile + 180) / 10)
-        line = -(lat_tile - 90 + vertical_tile * 10) * 120 - 0.5
-        sample = (180 - horizontal_tile * 10 + lon_tile) * 120 - 0.5
-        return vertical_tile, horizontal_tile, round(line, 8), round(sample, 8)  # 保留8位小数
-
-    @staticmethod
-    def tcdeg2gc(lat_tile, lon_tile):
-        lat_geographic = lat_tile
-        lon_geographic = lon_tile / math.cos(math.radians(lat_geographic))
-        return lat_geographic, lon_geographic
-
-    @staticmethod
-    def gc2tcdeg(lat_geographic, lon_geographic):
-        lat_tile = lat_geographic
-        lon_tile = lon_geographic * math.cos(math.radians(lat_geographic))
-        return lat_tile, lon_tile
-
-    @staticmethod
-    def coordinates_tile2mapindex(lat_tile, lon_tile, vertical, horizental):
-        vertical_pos = int(vertical * (-lat_tile + 90) / 180)
-        horizental_pos = int(horizental * (lon_tile + 180) / 360)
-        if vertical_pos == vertical:
-            vertical_pos -= 1
-        if horizental_pos == horizental:
-            horizental_pos -= 1
-        return vertical_pos, horizental_pos
-
-    @staticmethod
-    def tcnum2gc(vertical_tile, horizontal_tile, line, sample):
-        """转换图块坐标系到地理坐标系
+    def ICSTile2ICSGeo(vertical_tile, horizontal_tile, line, sample, grid="1km"):
+        """转换平铺坐标系到地理影像坐标系
         :param vertical_tile: 垂直图块号
         :param horizontal_tile: 水平图块号
         :param line: 垂直行号
         :param sample: 水平列号
-        :return: (lat_geographic, lon_geographic), 纬度为南北方向, 经度为东西方向"""
-        lat_tile, lon_tile = Sinusoidal.tcnum2tcdeg(vertical_tile, horizontal_tile, line, sample)
-        return Sinusoidal.tcdeg2gc(lat_tile, lon_tile)
+        :return: (lat_tile, lon_tile), 纬度为南北方向, 经度为东西方向"""
+        Sinusoidal._check_tile(vertical_tile, horizontal_tile)
+        if grid == "1km":
+            lat_tile = 90 - vertical_tile * 10 - (line + 0.5) / 120
+            lon_tile = -180 + horizontal_tile * 10 + (sample + 0.5) / 120
+        elif grid == "500m":
+            lat_tile = 90 - vertical_tile * 10 - (line + 0.5) / 240
+            lon_tile = -180 + horizontal_tile * 10 + (sample + 0.5) / 240
+        else:
+            raise ValueError(f"grid({grid}) should be in ['1km', '500m']")
+        return lat_tile, lon_tile
 
     @staticmethod
-    def gc2tcnum(lat_geographic, lon_geographic):
-        """转换地理坐标系到图块坐标系
-        :param lat_geographic: 纬度
-        :param lon_geographic: 经度
+    def ICSGeo2ICSTile(lat_tile, lon_tile, grid="1km"):
+        """转换地理影像坐标系到平铺坐标系
+        :param lat_tile: 纬度
+        :param lon_tile: 经度
         :return: (vertical_tile, horizontal_tile, line, sample)"""
-        lat_tile, lon_tile = Sinusoidal.gc2tcdeg(lat_geographic, lon_geographic)
-        return Sinusoidal.tcdeg2tcnum(lat_tile, lon_tile)
+        Sinusoidal._check_geo(lat_tile, lon_tile)
+        vertical_tile = int((90 - lat_tile) / 10)
+        horizontal_tile = int((lon_tile + 180) / 10)
+        if grid == "1km":
+            line = round(-(lat_tile - 90 + vertical_tile * 10) * 120 - 0.5, Sinusoidal.default_precision)
+            sample = round((180 - horizontal_tile * 10 + lon_tile) * 120 - 0.5, Sinusoidal.default_precision)
+        elif grid == "500m":
+            line = round(-(lat_tile - 90 + vertical_tile * 10) * 240 - 0.5, Sinusoidal.default_precision)
+            sample = round((180 - horizontal_tile * 10 + lon_tile) * 240 - 0.5, Sinusoidal.default_precision)
+        else:
+            raise ValueError(f"grid({grid}) should be in ['1km', '500m']")
+        return vertical_tile, horizontal_tile, line, sample
 
     @staticmethod
-    def gc2rc(lat_geographic, lon_geographic):
+    def ICSGeo2GCS(lat_tile, lon_tile):
+        """转换地理影像坐标系到地理坐标系
+        :param lat_tile: 纬度
+        :param lon_tile: 经度
+        :return: (lat_gcs, lon_gcs), 纬度为南北方向, 经度为东西方向"""
+        Sinusoidal._check_geo(lat_tile, lon_tile)
+        lat_gcs = lat_tile
+        lon_gcs = lon_tile / math.cos(math.radians(lat_gcs))
+        return lat_gcs, lon_gcs
+
+    @staticmethod
+    def GCS2ICSGeo(lat_gcs, lon_gcs):
+        """转换地理坐标系到地理影像坐标系
+        :param lat_gcs: 纬度
+        :param lon_gcs: 经度
+        :return: (lat_tile, lon_tile), 纬度为南北方向, 经度为东西方向"""
+        Sinusoidal._check_geo(lat_gcs, lon_gcs)
+        lat_tile = lat_gcs
+        lon_tile = lon_gcs * math.cos(math.radians(lat_gcs))
+        return lat_tile, lon_tile
+
+    @staticmethod
+    def ICSTile2GCS(vertical_tile, horizontal_tile, line, sample, grid="1km"):
+        """转换平铺坐标系到地理坐标系
+        :param vertical_tile: 垂直图块号
+        :param horizontal_tile: 水平图块号
+        :param line: 垂直行号
+        :param sample: 水平列号
+        :return: (lat_gcs, lon_gcs), 纬度为南北方向, 经度为东西方向"""
+        lat_tile, lon_tile = Sinusoidal.ICSTile2ICSGeo(vertical_tile, horizontal_tile, line, sample, grid)
+        lat_gcs, lon_gcs = Sinusoidal.ICSGeo2GCS(lat_tile, lon_tile)
+        return lat_gcs, lon_gcs
+
+    @staticmethod
+    def GCS2ICSTile(lat_gcs, lon_gcs, grid="1km"):
+        """转换地理坐标系到平铺坐标系
+        :param lat_gcs: 纬度
+        :param lon_gcs: 经度
+        :return: (vertical_tile, horizontal_tile, line, sample)"""
+        lat_tile, lon_tile = Sinusoidal.GCS2ICSGeo(lat_gcs, lon_gcs)
+        vertical_tile, horizontal_tile, line, sample = Sinusoidal.ICSGeo2ICSTile(lat_tile, lon_tile, grid)
+        return vertical_tile, horizontal_tile, line, sample
+
+    @staticmethod
+    def GCS2PCS(lat_gcs, lon_gcs):
         """
-        地理坐标系转直角坐标系
-        :param lat_geographic: 纬度
-        :param lon_geographic: 经度
+        地理坐标系转投影坐标系
+        :param lat_gcs: 纬度
+        :param lon_gcs: 经度
         :return: (x, y), x 为东西方向, y 为南北方向
         """
-        x, y = Proj(Sinusoidal.crs)(lon_geographic, lat_geographic)
+        x, y = Proj(Sinusoidal.crs)(lon_gcs, lat_gcs)
         return x, y
 
     @staticmethod
-    def rc2gc(x, y):
+    def PCS2GCS(x, y):
         """
-        直角坐标系转地理坐标系
+        投影坐标系转地理坐标系
         :param x: x, 东西方向
         :param y: y, 南北方向
-        :return: (lat_geographic, lon_geographic), 纬度为南北方向, 经度为东西方向
+        :return: (lat_gcs, lon_gcs), 纬度为南北方向, 经度为东西方向
         """
-        lon_geographic, lat_geographic = Proj(Sinusoidal.crs)(x, y, inverse=True)
-        return lat_geographic, lon_geographic
+        lon_gcs, lat_gcs = Proj(Sinusoidal.crs)(x, y, inverse=True)
+        return lat_gcs, lon_gcs
 
     @staticmethod
-    def get_bounding_coordinates_of_sinusoidal_tiles(vertical_tile, horizontal_tile):
+    def tile_GCSBox(vertical_tile, horizontal_tile, grid="1km"):
         """
-        获取指定图块的经纬度坐标矩形范围
+        获取指定图块的地理坐标系矩形范围
         :param vertical_tile: 垂直图块号
         :param horizontal_tile: 水平图块号
-        :return: (lat_min, lat_max, lon_min, lon_max)
+        :return: (lat_min, lon_min, lat_max, lon_max)
         """
         # 分别计算四个角点的经纬度, 由于是正弦投影, 所以四个角点都要计算经纬度
-        lat_ul, lon_ul = Sinusoidal.tcnum2gc(vertical_tile, horizontal_tile, -0.5, -0.5)  # 左上角
-        lat_ur, lon_ur = Sinusoidal.tcnum2gc(vertical_tile, horizontal_tile, -0.5, 1199.5)  # 右上角
-        lat_lr, lon_lr = Sinusoidal.tcnum2gc(vertical_tile, horizontal_tile, 1199.5, 1199.5)  # 右下角
-        lat_ll, lon_ll = Sinusoidal.tcnum2gc(vertical_tile, horizontal_tile, 1199.5, -0.5)  # 左下角
+        if grid == "1km":
+            lat_ul, lon_ul = Sinusoidal.ICSTile2GCS(vertical_tile, horizontal_tile, -0.5, -0.5)  # 左上角
+            lat_ur, lon_ur = Sinusoidal.ICSTile2GCS(vertical_tile, horizontal_tile, -0.5, 1199.5)  # 右上角
+            lat_lr, lon_lr = Sinusoidal.ICSTile2GCS(vertical_tile, horizontal_tile, 1199.5, 1199.5)  # 右下角
+            lat_ll, lon_ll = Sinusoidal.ICSTile2GCS(vertical_tile, horizontal_tile, 1199.5, -0.5)  # 左下角
+        elif grid == "500m":
+            lat_ul, lon_ul = Sinusoidal.ICSTile2GCS(vertical_tile, horizontal_tile, -0.5, -0.5)
+            lat_ur, lon_ur = Sinusoidal.ICSTile2GCS(vertical_tile, horizontal_tile, -0.5, 2399.5)
+            lat_lr, lon_lr = Sinusoidal.ICSTile2GCS(vertical_tile, horizontal_tile, 2399.5, 2399.5)
+            lat_ll, lon_ll = Sinusoidal.ICSTile2GCS(vertical_tile, horizontal_tile, 2399.5, -0.5)
         lat_min = min(lat_ul, lat_lr, lat_ur, lat_ll)
         lat_max = max(lat_ul, lat_lr, lat_ur, lat_ll)
         lon_min = min(lon_ul, lon_lr, lon_ur, lon_ll)
         lon_max = max(lon_ul, lon_lr, lon_ur, lon_ll)
-        return lat_min, lat_max, lon_min, lon_max
+        return lat_min, lon_min, lat_max, lon_max
 
     @staticmethod
-    def get_GRing_rectangular_coordinates_of_sinusoidal_tiles(vertical_tile, horizontal_tile):
+    def tile_PCSGRing(vertical_tile, horizontal_tile, grid="1km"):
         """
         获取指定图块的环直角坐标(GRing, 四个角点的坐标), 高纬度地区失效
         :param vertical_tile: 垂直图块号
         :param horizontal_tile: 水平图块号
         :return: (x_ul, y_ul, x_ur, y_ur, x_lr, y_lr, x_ll, y_ll), x 为东西方向, y 为南北方向
         """
-        lat_ul, lon_ul = Sinusoidal.tcnum2gc(vertical_tile, horizontal_tile, -0.5, -0.5)
-        x_ul, y_ul = Sinusoidal.gc2rc(lat_ul, lon_ul)
-        lat_ur, lon_ur = Sinusoidal.tcnum2gc(vertical_tile, horizontal_tile, -0.5, 1199.5)
-        x_ur, y_ur = Sinusoidal.gc2rc(lat_ur, lon_ur)
-        lat_lr, lon_lr = Sinusoidal.tcnum2gc(vertical_tile, horizontal_tile, 1199.5, 1199.5)
-        x_lr, y_lr = Sinusoidal.gc2rc(lat_lr, lon_lr)
-        lat_ll, lon_ll = Sinusoidal.tcnum2gc(vertical_tile, horizontal_tile, 1199.5, -0.5)
-        x_ll, y_ll = Sinusoidal.gc2rc(lat_ll, lon_ll)
-        print(lat_ll, lon_ll, lat_lr, lon_lr, lat_ur, lon_ur, lat_ul, lon_ul)
+        if grid == "1km":
+            lat_ul, lon_ul = Sinusoidal.ICSTile2GCS(vertical_tile, horizontal_tile, -0.5, -0.5)
+            x_ul, y_ul = Sinusoidal.GCS2PCS(lat_ul, lon_ul)
+            lat_ur, lon_ur = Sinusoidal.ICSTile2GCS(vertical_tile, horizontal_tile, -0.5, 1199.5)
+            x_ur, y_ur = Sinusoidal.GCS2PCS(lat_ur, lon_ur)
+            lat_lr, lon_lr = Sinusoidal.ICSTile2GCS(vertical_tile, horizontal_tile, 1199.5, 1199.5)
+            x_lr, y_lr = Sinusoidal.GCS2PCS(lat_lr, lon_lr)
+            lat_ll, lon_ll = Sinusoidal.ICSTile2GCS(vertical_tile, horizontal_tile, 1199.5, -0.5)
+            x_ll, y_ll = Sinusoidal.GCS2PCS(lat_ll, lon_ll)
+        elif grid == "500m":
+            lat_ul, lon_ul = Sinusoidal.ICSTile2GCS(vertical_tile, horizontal_tile, -0.5, -0.5)
+            x_ul, y_ul = Sinusoidal.GCS2PCS(lat_ul, lon_ul)
+            lat_ur, lon_ur = Sinusoidal.ICSTile2GCS(vertical_tile, horizontal_tile, -0.5, 2399.5)
+            x_ur, y_ur = Sinusoidal.GCS2PCS(lat_ur, lon_ur)
+            lat_lr, lon_lr = Sinusoidal.ICSTile2GCS(vertical_tile, horizontal_tile, 2399.5, 2399.5)
+            x_lr, y_lr = Sinusoidal.GCS2PCS(lat_lr, lon_lr)
+            lat_ll, lon_ll = Sinusoidal.ICSTile2GCS(vertical_tile, horizontal_tile, 2399.5, -0.5)
+            x_ll, y_ll = Sinusoidal.GCS2PCS(lat_ll, lon_ll)
         return x_ul, y_ul, x_ur, y_ur, x_lr, y_lr, x_ll, y_ll
