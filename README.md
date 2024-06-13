@@ -14,7 +14,7 @@ Parameters of MODIS Sinusoidal Projection:
 3. ICSTile: Tile/Image Coordinates System, a tiling/image coordinate system represented by tile numbers:  
     * Vertical tile number (vertical_tile), with values ranging from 0 to 17;  
     * Horizontal tile number (horizontal_tile), with values ranging from 0 to 35;  
-    * Vertical line number (line), with values ranging from 1199.5(1km)/2399.5(500m);  
+    * Vertical line number (line), with values ranging from -0.5 to 1199.5(1km)/2399.5(500m);  
     * Horizontal column number (sample), with values ranging from -0.5 to 1199.5(1km)/2399.5(500m);  
 
 4. ICSGeo: Geographic Tile/Image Coordinate System, a tiling/image coordinate system represented by latitude and longitude:
