@@ -63,7 +63,7 @@ class WebMercator:
         """获取瓦片六参数投影变换矩阵, 用于将瓦片坐标系转换为地理坐标系"""
         # 检查瓦片编号是否合法
         WebMercator._check_tile_xyz_valid(x, y, z)
-        # 计算瓦片变换矩阵       
+        # 计算瓦片变换矩阵
         ulx, uly, brx, bry = WebMercator.get_tile_bounds(x, y, z)   
         pixel_size = (brx - ulx) / WebMercator.pixels_per_tile # 每个像素的大小
         return Affine.from_gdal(ulx, pixel_size, 0, uly, 0, -pixel_size)
