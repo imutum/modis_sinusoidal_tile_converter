@@ -1,6 +1,8 @@
 import math
 
 from pyproj import CRS, Proj
+from typing import Tuple
+from rasterio import Affine
 
 __all__ = ["Sinusoidal"]
 
@@ -31,6 +33,13 @@ class Sinusoidal:
     """
 
     wkt = 'PROJCS["MODIS_Sinusoidal",GEOGCS["GCS_Sphere",DATUM["D_Sphere",SPHEROID["Sphere",6371007.181,0]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Sinusoidal"],PARAMETER["longitude_of_center",0],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]]]'
+
+    tile_size_meters_1km = 926.625433055833
+    tile_size_meters_500m = 463.312716527917
+    tile_size_meters_250m = 231.656358263958
+    tile_meters_ulx = -20015109.354
+    tile_meters_uly = 10007554.677
+    
 
     crs = CRS.from_wkt(wkt)
 
@@ -208,3 +217,31 @@ class Sinusoidal:
             lat_ll, lon_ll = Sinusoidal.ICSTile2GCS(vertical_tile, horizontal_tile, 2399.5, -0.5)
             x_ll, y_ll = Sinusoidal.GCS2PCS(lat_ll, lon_ll)
         return x_ul, y_ul, x_ur, y_ur, x_lr, y_lr, x_ll, y_ll
+
+    @staticmethod
+    def get_tile_bounds(hv: str) -> Tuple[float, float]:
+        h = int(hv[1:3])
+        v = int(hv[4:6])
+        dh = Sinusoidal.tile_meters_ulx / 18 
+        dv = Sinusoidal.tile_meters_uly / 9
+        h_ulx = Sinusoidal.tile_meters_ulx + h * dh
+        v_uly = Sinusoidal.tile_meters_uly - v * dv
+        h_brx = Sinusoidal.tile_meters_ulx + (h+1) * dh
+        v_bry = Sinusoidal.tile_meters_uly - (v+1) * dv
+        return round(h_ulx, 6), round(v_uly, 6), round(h_brx, 6), round(v_bry, 6)
+
+    @staticmethod
+    def get_tile_crs(hv: str=None) -> CRS:
+        return Sinusoidal.crs
+
+    @staticmethod
+    def get_tile_transform(hv: str, zoom: int = 1000) -> Affine:
+        tile_map_dict = {
+            1000: Sinusoidal.tile_size_meters_1km,
+            500: Sinusoidal.tile_size_meters_500m,
+            250: Sinusoidal.tile_size_meters_250m,
+        }
+        ulx, uly, _, _ = Sinusoidal.get_tile_bounds(hv)
+        return Affine.from_gdal(ulx, tile_map_dict[zoom], 0, uly, 0, -tile_map_dict[zoom])
+
+    
