@@ -36,9 +36,9 @@ class WebMercator:
         # 计算图块瓦片号
         tile_count = 2**z # 瓦片总数
         tile_meters_total_x = WebMercator.tile_meters_brx - WebMercator.tile_meters_ulx # 水平方向投影坐标系米数
-        tile_meters_total_y = WebMercator.tile_meters_uly - WebMercator.tile_meters_bry # 垂直方向投影坐标系米数
+        tile_meters_total_y = WebMercator.tile_meters_bry - WebMercator.tile_meters_uly # 垂直方向投影坐标系米数
         tile_x = np.floor((x - WebMercator.tile_meters_ulx) / tile_meters_total_x * tile_count).astype(int) # 水平方向瓦片号
-        tile_y = np.floor((y - WebMercator.tile_meters_bry) / tile_meters_total_y * tile_count).astype(int) # 垂直方向瓦片号
+        tile_y = np.floor((y - WebMercator.tile_meters_uly) / tile_meters_total_y * tile_count).astype(int) # 垂直方向瓦片号
         return tile_x, tile_y
 
     @staticmethod

@@ -224,9 +224,9 @@ class Sinusoidal:
         v = int(hv[4:6])
         dh = Sinusoidal.tile_meters_ulx / 18 
         dv = Sinusoidal.tile_meters_uly / 9
-        h_ulx = Sinusoidal.tile_meters_ulx + h * dh
+        h_ulx = Sinusoidal.tile_meters_ulx - h * dh
         v_uly = Sinusoidal.tile_meters_uly - v * dv
-        h_brx = Sinusoidal.tile_meters_ulx + (h+1) * dh
+        h_brx = Sinusoidal.tile_meters_ulx - (h+1) * dh
         v_bry = Sinusoidal.tile_meters_uly - (v+1) * dv
         return round(h_ulx, 6), round(v_uly, 6), round(h_brx, 6), round(v_bry, 6)
 
@@ -243,5 +243,3 @@ class Sinusoidal:
         }
         ulx, uly, _, _ = Sinusoidal.get_tile_bounds(hv)
         return Affine.from_gdal(ulx, tile_map_dict[zoom], 0, uly, 0, -tile_map_dict[zoom])
-
-    
